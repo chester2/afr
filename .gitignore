@@ -1,0 +1,14 @@
+_utilities/
+afr/__pycache__/
+afr/config/__pycache__/
+afr/core/__pycache__/
+afr/misc/__pycache__/
+afr/prereq/__pycache__/
+afr.egg-info/
+dist/
+docs/
+temp/
+a
+b
+cmc
+knn
