@@ -8,7 +8,8 @@ afr.egg-info/
 dist/
 docs/
 temp/
-a
-b
-cmc
-knn
+t_a
+t_cmc
+t_exports
+t_knn
+t_rand

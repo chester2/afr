@@ -11,17 +11,8 @@ from ..core.eigf import f_to_weights
 
 
 #####################################
-## Helper Functions
+## Helper Function
 #####################################
-
-
-def lincombo(scalars, colmatrix):
-    # returns a linear combination of colmatrix's columns
-    # scalars[j] corresponds to colmatrix[:,j]
-    vector = scalars[0]*colmatrix[:,0]
-    for j in range(1, colmatrix.shape[1]):
-        vector += scalars[j]*colmatrix[:,j]
-    return vector
 
 
 def get_setinfo(setname):
@@ -38,14 +29,14 @@ def get_setinfo(setname):
 
 
 @pathreset
-def rmk_img(setname, filepath):
+def rmk_img(filepath, setname):
     #filepath is absolute
     filename = os.path.split(filepath)[1]
-    fweights = f_to_weights(setname, filepath)
+    fweights = f_to_weights(filepath, setname)
     mean, eigfs, w, h = get_setinfo(setname)
-    vector = lincombo(fweights, eigfs) + mean
+    face = eigfs.dot(fweights) + mean
     pathexports()
-    imwrite(f'rmk_{filename}', vector, w, h)
+    imwrite(f'rmk_{filename}', face, w, h)
 
 
 @pathreset
@@ -74,5 +65,5 @@ def rmk_cmeans(setname):
     cmeans = readcmeans(setname)
     pathexports()
     for j in range(cmeans.shape[1]):
-        vector = list(lincombo(cmeans[:,j], eigfs) + mean)
-        imwrite(f'{setname}_cmean{j}.png', vector, w, h)
+        face = eigfs.dot(cmeans[:,j]) + mean
+        imwrite(f'{setname}_cmean{j}.png', face, w, h)

@@ -13,37 +13,37 @@ from ..prereq.dbio import *
 #####################################
 
 
-def get_classid(setname, i):
+def get_classid(i, setname):
     # returns the filename string pattern that identifies a face's class
     return f'{SETS[setname][PFX]}{i}{SETS[setname][SFX]}'
 
 
-def build_cdb(setname):
+def build_face_classes(setname):
     # returns a 3D list (class, face, pixel intensity)
     pathset(setname)
-    cdb = []
+    face_classes = []
     files = ls()
     for i in range(SETS[setname][INIT], SETS[setname][END] + 1):
-        cdb.append([
+        face_classes.append([
             imread(filename)
             for filename in files
-            if get_classid(setname, i) in filename
+            if get_classid(i, setname) in filename
         ])
-    return cdb
+    return face_classes
 
 
-def build_cweights(class_list, mean, eigfs):
-    # returns a column matrix of weights of class_list's faces
+def build_cweights(face_class, mean, eigfs):
+    # returns a column matrix of weights of face_class's faces
     # class_list is a 2D list of class faces (row vectors)
-    cshifted = np.transpose(np.array(class_list, dtype=np.float64) - mean)
-    return np.transpose(eigfs).dot(cshifted)
+    mean_shifted = np.transpose(np.array(face_class, dtype=np.float64) - mean)
+    return np.transpose(eigfs).dot(mean_shifted)
 
 
 def build_fweights(face, mean, eigfs):
     # returns a vector of face's weights
     # face is a list (row vector)
-    fshifted = np.array(face, dtype=np.float64) - mean
-    return np.transpose(eigfs).dot(fshifted)
+    mean_shifted = np.array(face, dtype=np.float64) - mean
+    return np.transpose(eigfs).dot(mean_shifted)
 
 
 #####################################
@@ -55,17 +55,17 @@ def build_fweights(face, mean, eigfs):
 def eigf(setname):
     mean = readmean(setname)
     eigfs = readeigfs(setname)
-    cdb = build_cdb(setname)
+    face_classes = build_face_classes(setname)
     cmeanweights = []
-    for i, c in enumerate(cdb):
-        cweights = build_cweights(c, mean, eigfs)
+    for i, face_class in enumerate(face_classes):
+        cweights = build_cweights(face_class, mean, eigfs)
         writeclass(setname, i, cweights)
         cmeanweights.append(np.mean(cweights, 1))
     temp = np.transpose(np.array(cmeanweights, dtype=np.float64))
     writecmeans(setname, temp)
 
 
-def f_to_weights(setname, filepath):
+def f_to_weights(filepath, setname):
     # import a face image and convert to eigenface weights
     # filepath is absolute
     mean = readmean(setname)

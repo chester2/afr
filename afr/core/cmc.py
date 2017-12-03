@@ -44,5 +44,6 @@ def cmc(filename, setname, dim=0, rmk=False):
     dists = dists_to_cmeans(fweights, setname, dim)
     idindex = dists.index(min(dists))
     if SETS[setname][NAMES]:
-        return idindex, SETS[setname][NAMES][idindex]
+        name = SETS[setname][NAMES][idindex]
+        return idindex, name
     return idindex, ''

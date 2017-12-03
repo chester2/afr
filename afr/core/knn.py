@@ -19,7 +19,7 @@ from ..misc.rmk import rmk_img
 def dists_to_class(fweights, setname, i, dim):
     # get distances between some face (fweights) and all faces in class i
     # mark distances with the class index
-    # consider only weights for the first "dim" eigenfaces
+    # consider only the first "dim" weights
     cweights = readclass(setname, i)
     if dim == 0:
         return [
@@ -33,8 +33,7 @@ def dists_to_class(fweights, setname, i, dim):
         ]
 
 
-def dists_to_set(fweights, setname, dim):
-    # get distances between some face (fweights) and all faces in setname; sort distances in ascending order
+def dists_to_all(fweights, setname, dim):
     pathdb()
     files = [
         filename
@@ -50,8 +49,7 @@ def dists_to_set(fweights, setname, dim):
 
 
 def id(fweights, setname, k, dim):
-    # perform kNN identification
-    dists = dists_to_set(fweights, setname, dim)
+    dists = dists_to_all(fweights, setname, dim)
     if k > 1:
         n_classes = SETS[setname][END] - SETS[setname][INIT] + 1
         tracker = [0] * n_classes
@@ -71,11 +69,11 @@ def id(fweights, setname, k, dim):
 @pathreset
 def knn(filename, setname, k, dim=0, rmk=False):
     filepath = os.path.join(PATHTBI, filename)
-    fweights = eigf.f_to_weights(filepath, setname)
+    fweights = f_to_weights(filepath, setname)
     if rmk:
-        # reconstruct the image from eigenfaces
         rmk_img(filepath, setname)
     idindex = id(fweights, setname, k, dim)
     if SETS[setname][NAMES]:
-        return idindex, SETS[setname][NAMES][idindex]
+        name = SETS[setname][NAMES][idindex]
+        return idindex, name
     return idindex, ''
