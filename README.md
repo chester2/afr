@@ -7,9 +7,8 @@ Python implementation of the [eigenface method](https://www.cs.ucsb.edu/~mturk/P
 ### Table of Contents
 
 1. [Installation](#installation)
-2. [Setup](#setup)
-3. [Usage](#usage)
-4. [Reference](#reference)
+2. [Usage](#usage)
+3. [Method Reference](#reference)
 
 
 
@@ -44,132 +43,176 @@ python setup.py install
 
 
 <br>
-<h2 id="setup">Setup</h2>
-
-### General Configuration
-
-Navigate to
-
-    (path to Python)/Lib/site-packages/afr/config/
-
-Configure `config.ini`.
-
-
-
-### Database of Known Individuals
-
-Let us assume that we want to add the [Yale Face Database](http://vismod.media.mit.edu/vismod/classes/mas622-00/datasets/YALE/) (`yalefaces.tar.gz` on that page) to AFR. We observe that:
-- All images in the set are of resolution `320x243`
-- The string pattern `subjectX.` in an image's filename identifies that image as belonging to the person (or class) corresponding to index `X`
-- `X` begins counting from 1
-- `X` does not count past 15
-
-Let us name this database or set `yalefaces` and store all training images in `C:/yf_training/`. Navigate to
-
-    C:/yf_training/
-
-For all images with class index `01` to `09` in the filename, remove the leading zeros. Next, navigate to
-
-    (path to Python)/Lib/site-packages/afr/config/
-
-Open `sets.ini` and add the following section:
-
-    [yalefaces]
-    width=320
-    height=243
-    pfx=subject
-    sfx=.
-    init=1
-    end=15
-    path=C:/yf_training/
-    names=
-
-*`pfx` and `sfx` may have empty values.
-
-**`init` is the non-negative integer that class index counting starts from (in the filename). `end` is where counting stops. Internally, AFR always begins counting from 0.
-
-***`names` is a comma-separated list, where the first item is the name of the individual with class index `init`, the next item corresponds to class index `init+1`, etc. `names` may be valueless. If it does have a value, then the number of comma-separated entries must exactly match the number of classes in the set.
-
-
-
-<br>
 <h2 id="usage">Usage</h2>
 
-Given set `abc`:<br>
-If `abc` was newly added to AFR, if `abc`'s training images were modified, or if `abc`'s `set.ini` metadata was modified, then run the following in order:
+The `Imset` class is the core of AFR. It is a training set metadata container, and all AFR operations are defined as `Imset` class methods.
 
-    afr.pca('abc')
-    afr.eigf('abc')
+Using AFR is simple: instantiate an `Imset` object, then call its `buildnpy()` method to generate all `.npy` file dependencies. At this point, all other methods are available for use.
 
-It is now possible to perform identification using `afr.cmc()` and `afr.knn()`. It is also now possible to use the `rmk` functions.
+### Defining an Imset Object
 
-**Sample execution in interactive mode:**
+Full class definition:
 
-    python
-    >>> import afr
-    >>> sn = 'yalefaces'
-    >>> afr.pca(sn)
-    >>> afr.eigf(sn)
-    >>> afr.knn('man1.jpg', sn, 5, rmk=True)
-    7
-    >>>
+    class afr.Imset(
+        name,           # used to generate .npy filenames
+        width,          # pixel width
+        height,         # pixel height
+        ipfx,           # class index prefix
+        isfx,           # class index suffix
+        ifirst,         # first class index
+        ifinal,         # final class index
+        dir_to_ims,     # absolute path to directory storing the images
+        dir_to_npy,     # absolute path to where .npy files should be stored
+        classid=None    # list of names for individual classes
+    )
+
+The `nofc` property is also available, which indicates the number of classes in the training set.
+
+`ipfx`, `isfx`, `ifirst`, and `ifinal` are all with respect to training image filenames. Internally, AFR shifts indices to start counting from 0.
+
+`classid` is optional and maps names to the shifted class indices.
+
+Sample definition for the [yale face database](http://vismod.media.mit.edu/vismod/classes/mas622-00/datasets/):
+
+    >>> import os
+    >>> from afr import Imset
+    >>> yalefaces = Imset(
+    >>>     "yalefaces",
+    >>>     320,
+    >>>     243,
+    >>>     "subject",
+    >>>     ".",
+    >>>     1,
+    >>>     15,
+    >>>     os.path.abspath("c:/facerecog/yalefaces/"),
+    >>>     os.path.abspath("c:/facerecog/npy/"))
+
+### Remarks
+
+- All images in a training set must be of identical dimensions.
+- Any given training image must contain a string pattern (filename identifier) of the form `ipfx + str(i) + isfx` (where `i` is the non-shifted class index) in its filename. `i` may be preceeded by any number of zeros.
+- The directory containing the training images must contain no other files or subdirectories.
+- A to-be-identified image processed through a particular `Imset` object must have identical dimensions as that set's training images.
 
 
 
 <br>
-<h2 id="reference">Reference</h2>
+<h2 id="reference">Method Reference</h2>
 
-<code>afr.<b>pca</b>(<i>setname</i>)</code><br>
-Use _setname_'s training images to find the mean training image, the normalized eigenfaces, and the eigenfaces' eigenvectors. These are saved to disk as numpy array files.
-<br>
-<br>
+All vectors and arrays processed through AFR are of type `numpy.float64`.
 
-<code>afr.<b>eigf</b>(<i>setname</i>)</code><br>
-Reads numpy arrays of _setname_'s mean and eigenfaces (generated by `afr.pca()`) and computes the eigenface weights for each training image.
+### Core
 
-Weights for images belonging to one class are grouped into an array. These arrays are saved to disk as numpy array files.
+<code>Imset.<b>cmc</b>(<i>imfilepath</i>[<i>, dim</i>])</code><br>
+Returns the matched shifted class index after performing class-mean classification.
 
-Computes the average weight for each class as a column vector. Collects all average weights into a single matrix and saves to disk as a numpy array file.
+_dim_ is the eigenspace dimension (e.g. `dim=10` indicates to use the 10 largest eigenfaces). By default, the largest eigenspace is used.
 <br>
 <br>
 
-<code>afr.<b>cmc</b>(<i>filename, setname, dim=0, rmk=False</i>)</code><br>
-Returns a 2-tuple after performing class mean classification (average all images within a class and find the closest class). The first element is the index of the matched class. The second element is the matched individual's name (will be an empty string if in `sets.ini`, _setname_'s `names` property is valueless).
+<code>Imset.<b>knn</b>(<i>imfilepath, k</i>[<i>, dim</i>])</code><br>
+Returns the matched shifted class index after performing _k_-nearest neighbors classification.
 
-_filename_ is the full filename of the to-be-identified image.
-
-_dim_ is the number of eigenfaces to use (e.g. giving it the value 10 indicates to use the 10 eigenfaces with the largest eigenvalues). Set _dim_ to 0 to use all eigenfaces.
-
-If _rmk_ is `True`, exports the to-be-identified image's eigenface reconstruction.
+_dim_ is as described for `Imset.cmc()`.
 <br>
 <br>
 
-<code>afr.<b>knn</b>(<i>filename, setname, k, dim=0, rmk=False</i>)</code><br>
-Alterative to `afr.cmc()` with the same return value. Performs k-nearest neighbors identification.
 
-_k_ is a positive integer. The largest reasonable value to pass is the size of the smallest class.
-<br>
-<br>
 
-<code>afr.<b>listtbi</b>()</code><br>
-Returns a lists of filenames of all files in the to-be-identified directory.
+### .npy Manipulation and Access
+
+<code>Imset.<b>buildnpy</b>()</code><br>
+Generates all `.npy` file dependencies.
 <br>
 <br>
 
-<code>afr.<b>rmk_img</b>(<i>filepath, setname</i>)</code><br>
-Exports the eigenface reconstruction of an image (given by _filepath_).
+<code>Imset.<b>clearnpy</b>()</code><br>
+Removes all associated `.npy` files.
 <br>
 <br>
 
-<code>afr.<b>rmk_mean</b>(<i>setname</i>)</code><br>
-Exports _setname_'s mean training face.
+<code>Imset.<b>readmean</b>()</code><br>
+Returns a vector representation of the mean training image.
 <br>
 <br>
 
-<code>afr.<b>rmk_eigfs</b>(<i>setname</i>)</code><br>
-Exports _setname_'s eigenfaces as human-viewable images.
+<code>Imset.<b>writemean</b>(<i>mean</i>)</code><br>
+Writes a vector representation of the mean training image to disk.
 <br>
 <br>
 
-<code>afr.<b>rmk_cmeans</b>(<i>setname</i>)</code><br>
-Exports the mean face for each _stename_ class.
+<code>Imset.<b>readeigvs</b>()</code><br>
+Returns a vector of eigenvalues.
+<br>
+<br>
+
+<code>Imset.<b>writeeigvs</b>(<i>eigvs</i>)</code><br>
+Writes a vector of eigenvalues to disk.
+<br>
+<br>
+
+<code>Imset.<b>readeigfs</b>()</code><br>
+Returns an array of eigenfaces.
+<br>
+<br>
+
+<code>Imset.<b>writeeigfs</b>(<i>eigfs</i>)</code><br>
+Writes an array of eigenfaces to disk.
+<br>
+<br>
+
+<code>Imset.<b>readcweights</b>(<i>i</i>)</code><br>
+Returns a vector of class _i_'s weights.
+<br>
+<br>
+
+<code>Imset.<b>writecweights</b>(<i>i, cweights</i>)</code><br>
+Writes a vector of class _i_'s weights to disk.
+<br>
+<br>
+
+<code>Imset.<b>readcmeans</b>()</code><br>
+Returns an array of class mean weights.
+<br>
+<br>
+
+<code>Imset.<b>writecmeans</b>(<i>cmeans</i>)</code><br>
+Writes an array of class mean weights to disk.
+<br>
+<br>
+
+
+
+### Image Recreation
+
+<code>Imset.<b>rmkim</b>(<i>imfilepath, dir_to_rmk</i>)</code><br>
+Saves an image's eigenface reconstruction to _dir_to_rmk_.
+<br>
+<br>
+
+<code>Imset.<b>rmkmean</b>(<i>dir_to_rmk</i>)</code><br>
+Saves the mean training image to _dir_to_rmk_.
+<br>
+<br>
+
+<code>Imset.<b>rmkeigfs</b>(<i>dir_to_rmk</i>)</code><br>
+Saves eigenfaces as viewable images to _dir_to_rmk_.
+<br>
+<br>
+
+<code>Imset.<b>rmkcmeans</b>(<i>dir_to_rmk</i>)</code><br>
+Saves the mean image for each class to _dir_to_rmk_.
+<br>
+<br>
+
+
+
+### Misc.
+
+<code>Imset.<b>fnid</b>(<i>i</i>)</code><br>
+Returns the filename identifier for class _i_.
+<br>
+<br>
+
+<code>Imset.<b>ftow</b>(<i>imfilepath</i>)</code><br>
+Returns a vector of a face image's weights.
