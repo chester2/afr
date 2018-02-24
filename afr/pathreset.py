@@ -1,5 +1,3 @@
-# Path reset decorator.
-
 import functools
 import os
 

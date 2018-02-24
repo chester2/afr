@@ -1,18 +1,11 @@
-# Determine the principle components (eigenfaces) and their eigenvalues, as well as the mean training image.
+# Operations related to finding eigenfaces (principal components) and generating face weights.
 
 
 import os
+
 import numpy as np
 from .imio import *
 from .pathreset import pathreset
-
-
-@pathreset
-def import_ims(dir_to_ims):
-    # import all training images from the setname folder and return a row matrix of imported face images
-    os.chdir(dir_to_ims)
-    m = [imread(filename) for filename in os.listdir()]
-    return np.array(m, dtype=np.float64)
 
 
 def build_reqs(rmatrix):
@@ -39,10 +32,13 @@ def normalize(eigvs, eigfs):
                 eigfs[i,j] /= factor
 
 
-def pca(imset):
-    rmatrix = import_ims(imset.dir_to_ims)
+def pca(rmatrix):
     mean, eigvs, eigfs = build_reqs(rmatrix)
     normalize(eigvs, eigfs)
-    imset.writemean(mean)
-    imset.writeeigvs(eigvs)
-    imset.writeeigfs(eigfs)
+    return mean, eigvs, eigfs
+
+
+def ptow(pixels, mean, eigfs):
+    # pixels to weights
+    mean_shifted = np.array(pixels, dtype=np.float64) - mean
+    return eigfs.transpose().dot(mean_shifted)

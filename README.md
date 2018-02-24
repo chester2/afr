@@ -2,13 +2,15 @@
 
 Python implementation of the [eigenface method](https://www.cs.ucsb.edu/~mturk/Papers/jcn.pdf) for facial recognition.
 
+Images are assumed to cluster around a submanifold of a high-dimensional Euclidean space. Approximate that manifold by a collection of lower-dimensional linear subspaces, applying the eigenface method to each linear subspace.
+
 
 
 ### Table of Contents
 
 1. [Installation](#installation)
 2. [Usage](#usage)
-3. [Method Reference](#reference)
+3. [ImgSet Reference](#reference)
 
 
 
@@ -18,8 +20,10 @@ Python implementation of the [eigenface method](https://www.cs.ucsb.edu/~mturk/P
 ### Requirements
 
 - Python 3.6+
-- Compatible version of [NumPy](http://www.numpy.org)
-- Compatible version of [Pillow](https://python-pillow.org)
+- [Pillow](https://python-pillow.org)
+- [NumPy](http://www.numpy.org)
+- [SciPy](https://www.scipy.org/scipylib/index.html)
+- [scikit-learn](http://scikit-learn.org)
 
 
 
@@ -45,174 +49,124 @@ python setup.py install
 <br>
 <h2 id="usage">Usage</h2>
 
-The `Imset` class is the core of AFR. It is a training set metadata container, and all AFR operations are defined as `Imset` class methods.
+The `ImgSet` and `Img` classes make up the core of AFR. `ImgSet` is a training set metadata container, and `Img` is an image metadata container. All important operations are methods of `ImgSet`, which may or may not take an `Img` object as an argument.
 
-Using AFR is simple: instantiate an `Imset` object, then call its `buildnpy()` method to generate all `.npy` file dependencies. At this point, all other methods are available for use.
+### Preparation of Training Images
 
-### Defining an Imset Object
+- All images in a training set must be of identical dimensions.
+- In the filename of any training image must be a string pattern of the form `ipfx + str(i) + isfx`, where `i` is the class index of that training image. `i` may be preceeded by any number of zeros.
+- The directory containing the training images must contain no other files or subdirectories.
+- A "to-be-identified image" processed through a particular `ImgSet` object must have identical dimensions to that set's training images.
+
+### Instantiating an ImgSet Object
 
 Full class definition:
 
-    class afr.Imset(
-        name,           # used to generate .npy filenames
-        width,          # pixel width
-        height,         # pixel height
-        ipfx,           # class index prefix
-        isfx,           # class index suffix
-        ifirst,         # first class index
-        ifinal,         # final class index
-        dir_to_ims,     # absolute path to directory storing the images
-        dir_to_npy,     # absolute path to where .npy files should be stored
-        classid=None    # list of names for individual classes
+    class afr.ImgSet(
+        name,               # used to tag filenames of cache files
+        width,              # pixel width
+        height,             # pixel height
+        ipfx,               # class index prefix
+        isfx,               # class index suffix
+        nofss,              # number of linear subsets to use
+        timg_dir,           # abs path to directory containing training images
+        cache_dir,          # abs path to where cache files should be stored
+        class_names=None,   # list/dict mapping class indices to class names
+        refresh_db=False    # remakes cache files if True
     )
 
-The `nofc` property is also available, which indicates the number of classes in the training set.
-
-`ipfx`, `isfx`, `ifirst`, and `ifinal` are all with respect to training image filenames. Internally, AFR shifts indices to start counting from 0.
-
-`classid` is optional and maps names to the shifted class indices.
-
-Sample definition for the [yale face database](http://vismod.media.mit.edu/vismod/classes/mas622-00/datasets/):
+Sample instantiation for the [yale face database](http://vismod.media.mit.edu/vismod/classes/mas622-00/datasets/):
 
     >>> import os
-    >>> from afr import Imset
-    >>> yalefaces = Imset(
+    >>> from afr import ImgSet
+    >>> yf = ImgSet(
     >>>     "yalefaces",
     >>>     320,
     >>>     243,
     >>>     "subject",
     >>>     ".",
-    >>>     1,
-    >>>     15,
-    >>>     os.path.abspath("c:/facerecog/yalefaces/"),
-    >>>     os.path.abspath("c:/facerecog/npy/"))
+    >>>     7,
+    >>>     os.path.abspath("c:/yalefaces/"),
+    >>>     os.path.abspath("c:/db/")
+    >>> )
 
-### Remarks
+On instantiating an `ImgSet` object, cache files are automatically created if they do not exist for the current `nofss` value. On setting a new `nofss` value, cache files will be automatically created if they do not exist for the new value.
 
-- All images in a training set must be of identical dimensions.
-- Any given training image must contain a string pattern (filename identifier) of the form `ipfx + str(i) + isfx` (where `i` is the non-shifted class index) in its filename. `i` may be preceeded by any number of zeros.
-- The directory containing the training images must contain no other files or subdirectories.
-- A to-be-identified image processed through a particular `Imset` object must have identical dimensions as that set's training images.
+### Instantiating an Img Object
 
+The only argument that an `Img` object takes on instantiation is the image's absolute filepath.
 
+    >>> import os
+    >>> from afr import Img
+    >>> im = Img(os.path.abspath("c:/a_face.jpg"))
 
-<br>
-<h2 id="reference">Method Reference</h2>
+### Classifying an Image
 
-All vectors and arrays processed through AFR are of type `numpy.float64`.
+Call an `ImgSet` object's `cmc` or `nn` method on an `Img` object.
 
-### Core
-
-<code>Imset.<b>cmc</b>(<i>imfilepath</i>[<i>, dim</i>])</code><br>
-Returns the matched shifted class index after performing class-mean classification.
-
-_dim_ is the eigenspace dimension (e.g. `dim=10` indicates to use the 10 largest eigenfaces). By default, the largest eigenspace is used.
-<br>
-<br>
-
-<code>Imset.<b>knn</b>(<i>imfilepath, k</i>[<i>, dim</i>])</code><br>
-Returns the matched shifted class index after performing _k_-nearest neighbors classification.
-
-_dim_ is as described for `Imset.cmc()`.
-<br>
-<br>
+    >>> yf.cmc(im)
+    (3, '')
+    >>> yf.nn(im)
+    (3, '')
 
 
 
-### .npy Manipulation and Access
-
-<code>Imset.<b>buildnpy</b>()</code><br>
-Generates all `.npy` file dependencies.
 <br>
-<br>
+<h2 id="reference">ImgSet Reference</h2>
 
-<code>Imset.<b>clearnpy</b>()</code><br>
-Removes all associated `.npy` files.
+### Attributes
+
+<code>imgset.<b>rmatrix</b></code><br>
+A 2D list. Each inner list represents a training image and contains its pixel intensities (integers from 0-255).
 <br>
 <br>
 
-<code>Imset.<b>readmean</b>()</code><br>
-Returns a vector representation of the mean training image.
-<br>
-<br>
-
-<code>Imset.<b>writemean</b>(<i>mean</i>)</code><br>
-Writes a vector representation of the mean training image to disk.
-<br>
-<br>
-
-<code>Imset.<b>readeigvs</b>()</code><br>
-Returns a vector of eigenvalues.
-<br>
-<br>
-
-<code>Imset.<b>writeeigvs</b>(<i>eigvs</i>)</code><br>
-Writes a vector of eigenvalues to disk.
-<br>
-<br>
-
-<code>Imset.<b>readeigfs</b>()</code><br>
-Returns an array of eigenfaces.
-<br>
-<br>
-
-<code>Imset.<b>writeeigfs</b>(<i>eigfs</i>)</code><br>
-Writes an array of eigenfaces to disk.
-<br>
-<br>
-
-<code>Imset.<b>readcweights</b>(<i>i</i>)</code><br>
-Returns a vector of class _i_'s weights.
-<br>
-<br>
-
-<code>Imset.<b>writecweights</b>(<i>i, cweights</i>)</code><br>
-Writes a vector of class _i_'s weights to disk.
-<br>
-<br>
-
-<code>Imset.<b>readcmeans</b>()</code><br>
-Returns an array of class mean weights.
-<br>
-<br>
-
-<code>Imset.<b>writecmeans</b>(<i>cmeans</i>)</code><br>
-Writes an array of class mean weights to disk.
+<code>imgset.<b>ss_sizes</b></code><br>
+A list of integers. `imgset.ss_sizes[i]` is the number of training images that make up subset *i*, where *i* ranges from 0 to `imgset.nofss - 1`.
 <br>
 <br>
 
 
 
-### Image Recreation
+### Methods
 
-<code>Imset.<b>rmkim</b>(<i>imfilepath, dir_to_rmk</i>)</code><br>
-Saves an image's eigenface reconstruction to _dir_to_rmk_.
-<br>
-<br>
+<code>imgset.<b>cmc</b>(<i>img</i>)</code><br>
+<code>imgset.<b>nn</b>(<i>img</i>)</code><br>
+Classify an image and return a 2-tuple.
 
-<code>Imset.<b>rmkmean</b>(<i>dir_to_rmk</i>)</code><br>
-Saves the mean training image to _dir_to_rmk_.
-<br>
-<br>
+The first element is the matching class index.
 
-<code>Imset.<b>rmkeigfs</b>(<i>dir_to_rmk</i>)</code><br>
-Saves eigenfaces as viewable images to _dir_to_rmk_.
+The second element is the class name corresponding to that index if `imgset.class_names` exists and is valid. Otherwise, the second element is the empty string.
+
+The difference between these methods is that `cmc` looks for the closest class mean training image while `nn` simply looks for the closest training image.
 <br>
 <br>
 
-<code>Imset.<b>rmkcmeans</b>(<i>dir_to_rmk</i>)</code><br>
-Saves the mean image for each class to _dir_to_rmk_.
+<code>imgset.<b>clear_cache</b>()</code><br>
+Deletes all cache files associated with `imgset`.
+
+To continue using `imgset` without reinstantiating it, set its `nofss` attribute.
 <br>
 <br>
 
-
-
-### Misc.
-
-<code>Imset.<b>fnid</b>(<i>i</i>)</code><br>
-Returns the filename identifier for class _i_.
+<code>imgset.<b>ss_by_dist</b>(<i>img</i>)</code><br>
+Returns a list of subset indices, ordered by closest to farthest from `img`. Distances are measured between `img` and subset means.
 <br>
 <br>
 
-<code>Imset.<b>ftow</b>(<i>imfilepath</i>)</code><br>
-Returns a vector of a face image's weights.
+<code>imgset.<b>itow</b>(<i>img, ssindex</i>)</code><br>
+Returns a NumPy array of `img`'s eigenface weights when considering the subset indexed by `ssindex`.
+
+Array element *i* is the weight corresponding to eigenface *i*, where eigenface *i* has the *i+1*<sup>th</sup> largest eigenvalue of all eigenfaces in that subset.
+<br>
+<br>
+
+<code>imgset.<b>rmk_img</b>(<i>img, ssindex, rmk_dir</i>)</code><br>
+Reconstructs an image using the eigenfaces of the desired subset.
+<br>
+<br>
+
+<code>imgset.<b>rmk_mean</b>(<i>ssindex, rmk_dir</i>)</code><br>
+Exports the mean of the desired subset as an image file.
+<br>
+<br>

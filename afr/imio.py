@@ -2,12 +2,12 @@
 
 from PIL import Image
 
-def imread(filepath):
+def imread(fp):
     # open fp, convert to vector, make it greyscale, return the vector
-    return list(Image.open(filepath).convert('L').getdata())
+    return list(Image.open(fp).convert('L').getdata())
 
-def imwrite(filename, vector, w, h):
+def imwrite(fn, vector, w, h):
     # export vector as greyscale image and save to disk
     im = Image.new('L', (w, h),)
     im.putdata([round(i) for i in vector])
-    im.save(filename)
+    im.save(fn)

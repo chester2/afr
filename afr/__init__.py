@@ -1,1 +1,2 @@
-from .imset import Imset
+from .img import Img
+from .imgset import ImgSet

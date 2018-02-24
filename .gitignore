@@ -1,8 +1,7 @@
 .cache/
+_old/
 afr/__pycache__/
 afr.egg-info/
 build/
 dist/
 math/
-tests/.cache/
-tests/__pycache__/
