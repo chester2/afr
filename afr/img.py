@@ -12,8 +12,12 @@ class Img:
         self.fp = fp
         self.pixels = imread(fp)
     
+    @property
+    def fn(self):
+        return os.path.split(self.fp)[1]
+    
     def __str__(self):
-        return f'img({os.path.split(self.fp)[1]})'
+        return f'img({self.fn})'
     
     def __repr__(self):
         return self.__str__()

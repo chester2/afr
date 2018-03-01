@@ -102,11 +102,11 @@ The only argument that an `Img` object takes on instantiation is the image's abs
 
 ### Classifying an Image
 
-Call an `ImgSet` object's `cmc` or `nn` method on an `Img` object.
+Call an `ImgSet` object's `cmc` or `knn` method on an `Img` object.
 
     >>> yf.cmc(im)
     (3, '')
-    >>> yf.nn(im)
+    >>> yf.knn(im)
     (3, '')
 
 
@@ -131,14 +131,14 @@ A list of integers. `imgset.ss_sizes[i]` is the number of training images that m
 ### Methods
 
 <code>imgset.<b>cmc</b>(<i>img</i>)</code><br>
-<code>imgset.<b>nn</b>(<i>img</i>)</code><br>
+<code>imgset.<b>knn</b>(<i>img, k=2</i>)</code><br>
 Classify an image and return a 2-tuple.
 
 The first element is the matching class index.
 
 The second element is the class name corresponding to that index if `imgset.class_names` exists and is valid. Otherwise, the second element is the empty string.
 
-The difference between these methods is that `cmc` looks for the closest class mean training image while `nn` simply looks for the closest training image.
+The difference between these methods is that `cmc` looks for the nearest class mean training image while `knn` looks for the *k* nearest training images.
 <br>
 <br>
 
@@ -158,15 +158,5 @@ Returns a list of subset indices, ordered by closest to farthest from `img`. Dis
 Returns a NumPy array of `img`'s eigenface weights when considering the subset indexed by `ssindex`.
 
 Array element *i* is the weight corresponding to eigenface *i*, where eigenface *i* has the *i+1*<sup>th</sup> largest eigenvalue of all eigenfaces in that subset.
-<br>
-<br>
-
-<code>imgset.<b>rmk_img</b>(<i>img, ssindex, rmk_dir</i>)</code><br>
-Reconstructs an image using the eigenfaces of the desired subset.
-<br>
-<br>
-
-<code>imgset.<b>rmk_mean</b>(<i>ssindex, rmk_dir</i>)</code><br>
-Exports the mean of the desired subset as an image file.
 <br>
 <br>

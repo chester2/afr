@@ -1,13 +1,22 @@
 # Functions for reading and writing images.
 
+import numpy as np
 from PIL import Image
 
-def imread(fp):
-    # open fp, convert to vector, make it greyscale, return the vector
-    return list(Image.open(fp).convert('L').getdata())
+def standardize(pixels):
+    mean = np.mean(pixels)
+    std = np.std(pixels)
+    for i in range(len(pixels)):
+        pixels[i] = (pixels[i] - mean) / std
 
-def imwrite(fn, vector, w, h):
-    # export vector as greyscale image and save to disk
+def imread(fp):
+    # open fp, convert to list of pixels, make it greyscale
+    pixels = list(Image.open(fp).convert('L').getdata())
+    standardize(pixels)
+    return pixels
+
+def imwrite(fn, pixels, w, h):
+    # export list of pixels as a greyscale image to disk
     im = Image.new('L', (w, h),)
-    im.putdata([round(i) for i in vector])
+    im.putdata(pixels)
     im.save(fn)

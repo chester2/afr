@@ -1,4 +1,4 @@
-# Container for training set meta data. For working with the lower-dimensional manifold assumption.
+# Container for training set meta data. For working with the non-linear manifold assumption.
 
 
 import json
@@ -13,8 +13,8 @@ from .consts import *
 from .imio import imwrite
 from .pathreset import pathreset
 from .pca import pca, ptow
-from .c_cmc import cmc
-from .c_1nn import nn
+from .cmc import cmc
+from .knn import knn
 
 
 class ImgSet:
@@ -24,14 +24,13 @@ class ImgSet:
         self.height = height
         self.ipfx = ipfx
         self.isfx = isfx
-        self._nofss = nofss
         self.timg_dir = timg_dir
         self.cache_dir = cache_dir
         if class_names:
             self.class_names = class_names
         if refresh_cache:
             self.clear_cache()
-        self.set_timgs()
+        self.nofss = nofss
     
     @property
     def nofss(self):
@@ -58,7 +57,7 @@ class ImgSet:
     @property
     def cache_tag(self):
         # for use with read/write methods
-        return f'{self.name}{SFX_NOFSS}{self.nofss}'
+        return f'{self.name}{TAG_NOFSS}{self.nofss}'
     
     @property
     def rmatrix(self):
@@ -91,15 +90,21 @@ class ImgSet:
                 os.path.join(self.timg_dir, fn),
                 self.get_cindex(fn))
             for fn in os.listdir(self.timg_dir)
-            if not bool(os.stat(fn).st_file_attributes & FILE_ATTRIBUTE_HIDDEN)]
+            if not bool(os.stat(os.path.join(self.timg_dir, fn)).st_file_attributes & FILE_ATTRIBUTE_HIDDEN)]
     
     def kmeans(self):
         # sets the ssindex attribute of each timg
         # i.e. associates each timg with a subset
-        rmatrix = self.rmatrix
-        km = KMeans(n_clusters=self.nofss).fit(rmatrix)
-        for i, ssindex in enumerate(km.predict(rmatrix)):
-            self.timgs[i].ssindex = int(ssindex)
+        if self.nofss == 1:
+            for timg in self.timgs:
+                timg.ssindex = 0
+        else:
+            rmatrix = self.rmatrix
+            km = KMeans(
+                n_clusters=self.nofss
+            ).fit(rmatrix)
+            for i, ssindex in enumerate(km.predict(rmatrix)):
+                self.timgs[i].ssindex = int(ssindex)
     
     def build_cache(self):
         self.kmeans()
@@ -119,19 +124,21 @@ class ImgSet:
     def clear_cache(self):
         os.chdir(self.cache_dir)
         for fn in os.listdir():
-            if self.name in fn and ('.json' in fn or '.npy' in fn):
+            if self.name in fn and fn.split('.')[-1] in ('json', 'npy', 'log'):
                 os.remove(fn)
     
     
     # CLASSIFICATION
     
-    def ss_by_dist(self, img):
+    def ss_by_dist(self, img, incl_dists=False):
         # returns a list of subset indices
         # subsets are sorted by distance of their means to img, from closest to farthest
         dists = [
             (ssindex, np.linalg.norm(self.read_mean(ssindex) - img.pixels))
             for ssindex in range(self.nofss)]
         dists.sort(key=lambda x: x[1])
+        if incl_dists:
+            return dists
         return [x[0] for x in dists]
     
     def itow(self, img, ssindex):
@@ -140,11 +147,11 @@ class ImgSet:
         eigfs = self.read_eigfs(ssindex)
         return ptow(img.pixels, mean, eigfs)
     
-    def classify(self, img, f):
+    def classify(self, img, f, *args, **kwargs):
         ssindex = self.ss_by_dist(img)[0]
         weights = self.itow(img, ssindex)
         subset = self.subsets[ssindex]
-        match = f(weights, subset)
+        match = f(weights, subset, *args, **kwargs)
         try:
             return match, self.class_names[match]
         except:
@@ -153,13 +160,78 @@ class ImgSet:
     def cmc(self, img):
         return self.classify(img, cmc)
     
-    def nn(self, img):
-        return self.classify(img, nn)
+    def knn(self, img, k):
+        return self.classify(img, knn, k)
     
     
-    # DEBUG
+    # CACHE READ/WRITE
     
-    def c_by_dist(self, img, ssindex):
+    @pathreset
+    def read_timgs(self):
+        os.chdir(self.cache_dir)
+        with open(f'{self.cache_tag}{TAG_TIMGS}.json') as file:
+            timgs = json.load(file, object_hook=as_timg)
+        return timgs
+    @pathreset
+    def write_timgs(self):
+        os.chdir(self.cache_dir)
+        with open(f'{self.cache_tag}{TAG_TIMGS}.json', 'w') as file:
+            json.dump(self.timgs, file, cls=TImgEncoder, separators=(',', ':'))
+    
+    @pathreset
+    def read_mean(self, ssindex):
+        os.chdir(self.cache_dir)
+        return np.load(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.npy')
+    @pathreset
+    def write_mean(self, mean, ssindex):
+        os.chdir(self.cache_dir)
+        np.save(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}', mean)
+    
+    @pathreset
+    def read_eigvs(self, ssindex):
+        os.chdir(self.cache_dir)
+        return np.load(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGVS}.npy')
+    @pathreset
+    def write_eigvs(self, eigvs, ssindex):
+        os.chdir(self.cache_dir)
+        np.save(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGVS}', eigvs)
+    
+    @pathreset
+    def read_eigfs(self, ssindex):
+        os.chdir(self.cache_dir)
+        return np.load(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGFS}.npy')
+    @pathreset
+    def write_eigfs(self, eigfs, ssindex):
+        os.chdir(self.cache_dir)
+        np.save(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGFS}', eigfs)
+    
+    
+    # IMAGE REMAKE
+    
+    # @pathreset
+    # def rmk_img(self, img, ssindex, rmk_dir):
+        # fweights = self.itow(img, ssindex)
+        # mean = self.read_mean(ssindex)
+        # eigfs = self.read_eigfs(ssindex)
+        # rmk = eigfs.dot(fweights) + mean
+        
+        # fn = os.path.split(img.fp)[1]
+        # temp = fn.split('.')
+        # newfn, ext = '.'.join(temp[:-1]), temp[-1]
+        
+        # os.chdir(rmk_dir)
+        # imwrite(f'{newfn}{TAG_RMK}.{ext}', rmk, self.width, self.height)
+    
+    # @pathreset
+    # def rmk_mean(self, ssindex, rmk_dir):
+        # mean = self.read_mean(ssindex)
+        # os.chdir(rmk_dir)
+        # imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.png', mean, self.width, self.height)
+    
+    
+    # DEBUG/LOGGING
+    
+    def c_by_dist(self, img, ssindex, incl_dists=False):
         # returns a list of class indices sorted by closest to farthest from img's projection onto the subset with index ssindex
         weights = self.itow(img, ssindex)
         dists = [
@@ -167,78 +239,69 @@ class ImgSet:
             for timg in self.timgs
             if timg.ssindex == ssindex]
         dists.sort(key=lambda x: x[1])
+        if incl_dists:
+            return dists
         return [x[0] for x in dists]
     
-    def cpss(self, img):
-        # order subsets by closest to farthest
-        # for each subset, order the training images by closest to farthest, then print the class names
-        ssindices = self.ss_by_dist(img)
-        for i in ssindices:
-            print(f'    <Subset {i}>')
-            print([self.class_names[e] for e in self.c_by_dist(img, i)])
-        print()
-    
-    
-    # DB READ/WRITE
-    
-    @pathreset
-    def read_timgs(self):
-        os.chdir(self.cache_dir)
-        with open(f'{self.cache_tag}{SFX_TIMGS}.json') as file:
-            timgs = json.load(file, object_hook=as_timg)
-        return timgs
-    @pathreset
-    def write_timgs(self):
-        os.chdir(self.cache_dir)
-        with open(f'{self.cache_tag}{SFX_TIMGS}.json', 'w') as file:
-            json.dump(self.timgs, file, cls=TImgEncoder, separators=(',', ':'))
-    
-    @pathreset
-    def read_mean(self, ssindex):
-        os.chdir(self.cache_dir)
-        return np.load(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_MEAN}.npy')
-    @pathreset
-    def write_mean(self, mean, ssindex):
-        os.chdir(self.cache_dir)
-        np.save(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_MEAN}', mean)
-    
-    @pathreset
-    def read_eigvs(self, ssindex):
-        os.chdir(self.cache_dir)
-        return np.load(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_EIGVS}.npy')
-    @pathreset
-    def write_eigvs(self, eigvs, ssindex):
-        os.chdir(self.cache_dir)
-        np.save(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_EIGVS}', eigvs)
-    
-    @pathreset
-    def read_eigfs(self, ssindex):
-        os.chdir(self.cache_dir)
-        return np.load(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_EIGFS}.npy')
-    @pathreset
-    def write_eigfs(self, eigfs, ssindex):
-        os.chdir(self.cache_dir)
-        np.save(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_EIGFS}', eigfs)
-    
-    
-    # IMAGE REMAKE
-    
-    @pathreset
-    def rmk_img(self, img, ssindex, rmk_dir):
-        fweights = self.itow(img, ssindex)
-        mean = self.read_mean(ssindex)
-        eigfs = self.read_eigfs(ssindex)
-        rmk = eigfs.dot(fweights) + mean
+    def log_img_cm(self, img):
+        from .cmc import get_cmeans, dtocm
         
-        fn = os.path.split(img.fp)[1]
-        temp = fn.split('.')
-        newfn, ext = '.'.join(temp[:-1]), temp[-1]
+        # image name
+        data = f'{str(img)}\n'
         
-        os.chdir(rmk_dir)
-        imwrite(f'{newfn}{SFX_RMK}.{ext}', rmk, self.width, self.height)
+        # subsets and distances
+        data += 'Subsets'.ljust(LJ) + 'Distance\n'
+        ssdists = self.ss_by_dist(img, True)
+        for i, d in ssdists:
+            data += (' ' + str(i)).ljust(LJ) + (' ' + str(d)) + '\n'
+        
+        # for each subset
+        for i, d in ssdists:
+            # class means and distances
+            data += f'\n<Subset {i}>\n'
+            data += 'Class'.ljust(LJ) + 'Distance\n'
+            dists = list(
+                dtocm(
+                    self.itow(img, i),
+                    get_cmeans(self.subsets[i])
+                ).items()
+            )
+            dists.sort(key=lambda x: x[1])
+            for j, c in dists:
+                data += (' ' + self.class_names[j]).ljust(LJ) + (' ' + str(c)) + '\n'
+        
+        return data
     
     @pathreset
-    def rmk_mean(self, ssindex, rmk_dir):
-        mean = self.read_mean(ssindex)
-        os.chdir(rmk_dir)
-        imwrite(f'{self.cache_tag}{SFX_SS}{ssindex}{SFX_MEAN}.png', mean, self.width, self.height)
+    def log_cm(self, imgs):
+        os.chdir(self.cache_dir)
+        cm = [self.log_img_cm(img) for img in imgs]
+        with open(f'{self.cache_tag}{TAG_CM}.log', 'w') as file:
+            file.write((f'\n{50*"*"}\n\n').join(cm))
+    
+    def log_img_nn(self, img):
+        # image name
+        data = f'{str(img)}\n'
+        
+        # subsets and distances
+        data += 'Subsets'.ljust(LJ) + 'Distance\n'
+        ssdists = self.ss_by_dist(img, True)
+        for i, d in ssdists:
+            data += (' ' + str(i)).ljust(LJ) + (' ' + str(d)) + '\n'
+        
+        # for each subset
+        for i, d in ssdists:
+            # training images and distances
+            data += f'\n<Subset {i}>\n'
+            data += 'Class'.ljust(LJ) + 'Distance\n'
+            for j, c in self.c_by_dist(img, i, True):
+                data += (' ' + self.class_names[j]).ljust(LJ) + (' ' + str(c)) + '\n'
+        
+        return data
+    
+    @pathreset
+    def log_nn(self, imgs):
+        os.chdir(self.cache_dir)
+        nn = [self.log_img_nn(img) for img in imgs]
+        with open(f'{self.cache_tag}{TAG_NN}.log', 'w') as file:
+            file.write((f'\n{50*"*"}\n\n').join(nn))
