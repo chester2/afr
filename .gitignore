@@ -5,3 +5,4 @@ afr.egg-info/
 build/
 dist/
 math/
+tests/__pycache__/

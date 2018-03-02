@@ -4,8 +4,6 @@
 import os
 
 import numpy as np
-from .imio import *
-from .pathreset import pathreset
 
 
 def build_reqs(rmatrix):

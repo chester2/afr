@@ -16,6 +16,10 @@ from .pca import pca, ptow
 from .cmc import cmc
 from .knn import knn
 
+# for logging methods
+from .cmc import get_cmeans, dtocm
+from .tabulate import tabulate
+
 
 class ImgSet:
     def __init__(self, name, width, height, ipfx, isfx, nofss, timg_dir, cache_dir, class_names=None, refresh_cache=False):
@@ -134,7 +138,7 @@ class ImgSet:
         # returns a list of subset indices
         # subsets are sorted by distance of their means to img, from closest to farthest
         dists = [
-            (ssindex, np.linalg.norm(self.read_mean(ssindex) - img.pixels))
+            [ssindex, np.linalg.norm(self.read_mean(ssindex) - img.pixels)]
             for ssindex in range(self.nofss)]
         dists.sort(key=lambda x: x[1])
         if incl_dists:
@@ -209,7 +213,7 @@ class ImgSet:
     # IMAGE REMAKE
     
     @pathreset
-    def rmk_img(self, img, ssindex, rmk_dir):
+    def rmk_img(self, img, rmk_dir, ssindex=0):
         fweights = self.itow(img, ssindex)
         mean = self.read_mean(ssindex)
         eigfs = self.read_eigfs(ssindex)
@@ -223,13 +227,13 @@ class ImgSet:
         imwrite(f'{newfn}{TAG_RMK}.{ext}', rmk, self.width, self.height)
     
     @pathreset
-    def rmk_mean(self, ssindex, rmk_dir):
+    def rmk_mean(self, rmk_dir, ssindex=0):
         mean = self.read_mean(ssindex)
         os.chdir(rmk_dir)
         imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.png', mean, self.width, self.height)
     
     @pathreset
-    def rmk_eigfs(self, ssindex, rmk_dir):
+    def rmk_eigfs(self, rmk_dir, ssindex=0):
         eigfs = self.read_eigfs(ssindex)
         os.chdir(rmk_dir)
         for j in range(eigfs.shape[1]):
@@ -242,7 +246,7 @@ class ImgSet:
         # returns a list of class indices sorted by closest to farthest from img's projection onto the subset with index ssindex
         weights = self.itow(img, ssindex)
         dists = [
-            (timg.cindex, np.linalg.norm(timg.weights - weights))
+            [timg.cindex, np.linalg.norm(timg.weights - weights)]
             for timg in self.timgs
             if timg.ssindex == ssindex]
         dists.sort(key=lambda x: x[1])
@@ -250,65 +254,52 @@ class ImgSet:
             return dists
         return [x[0] for x in dists]
     
-    def log_img_cm(self, img):
-        from .cmc import get_cmeans, dtocm
-        
-        # image name
-        data = f'{str(img)}\n'
-        
-        # subsets and distances
-        data += 'Subsets'.ljust(LJ) + 'Distance\n'
+    def format_img(self, img, mode, margin=2):
         ssdists = self.ss_by_dist(img, True)
-        for i, d in ssdists:
-            data += (' ' + str(i)).ljust(LJ) + (' ' + str(d)) + '\n'
         
-        # for each subset
+        # tabulate distance to subset means
+        tables = tabulate(
+            [['SUBSET', 'DISTANCE']] + ssdists,
+            str(img),
+            margin
+        )
+        
         for i, d in ssdists:
-            # class means and distances
-            data += f'\n<Subset {i}>\n'
-            data += 'Class'.ljust(LJ) + 'Distance\n'
-            dists = list(
-                dtocm(
-                    self.itow(img, i),
-                    get_cmeans(self.subsets[i])
-                ).items()
+            # for each subset tabulate either distance to class means or distance to training images
+            if mode == 'cm':
+                dists = list(
+                    dtocm(
+                        self.itow(img, i),
+                        get_cmeans(self.subsets[i])
+                    ).items()
+                )
+                dists.sort(key=lambda x: x[1])
+                for i in range(len(dists)):
+                    dists[i] = list(dists[i]) # convert tuple to list
+            elif mode == 'ti':
+                dists = self.c_by_dist(img, i, True)
+            
+            headings = ['CLASS', 'DISTANCE']
+            if self.class_names:
+                headings.insert(1, 'NAME')
+                for item in dists:
+                    item.insert(1, self.class_names[item[0]])
+            
+            tables += tabulate(
+                [headings] + dists,
+                f'<Subset {i}>',
+                margin
             )
-            dists.sort(key=lambda x: x[1])
-            for j, c in dists:
-                data += (' ' + self.class_names[j]).ljust(LJ) + (' ' + str(c)) + '\n'
         
-        return data
+        return tables
     
     @pathreset
-    def log_cm(self, imgs):
+    def log_imgs(self, imgs, mode):
+        all_tables = [self.format_img(img, mode) for img in imgs]
+        if mode == 'cm':
+            tag = TAG_CM
+        elif mode == 'ti':
+            tag = TAG_TI
         os.chdir(self.cache_dir)
-        cm = [self.log_img_cm(img) for img in imgs]
-        with open(f'{self.cache_tag}{TAG_CM}.log', 'w') as file:
-            file.write((f'\n{50*"*"}\n\n').join(cm))
-    
-    def log_img_nn(self, img):
-        # image name
-        data = f'{str(img)}\n'
-        
-        # subsets and distances
-        data += 'Subsets'.ljust(LJ) + 'Distance\n'
-        ssdists = self.ss_by_dist(img, True)
-        for i, d in ssdists:
-            data += (' ' + str(i)).ljust(LJ) + (' ' + str(d)) + '\n'
-        
-        # for each subset
-        for i, d in ssdists:
-            # training images and distances
-            data += f'\n<Subset {i}>\n'
-            data += 'Class'.ljust(LJ) + 'Distance\n'
-            for j, c in self.c_by_dist(img, i, True):
-                data += (' ' + self.class_names[j]).ljust(LJ) + (' ' + str(c)) + '\n'
-        
-        return data
-    
-    @pathreset
-    def log_nn(self, imgs):
-        os.chdir(self.cache_dir)
-        nn = [self.log_img_nn(img) for img in imgs]
-        with open(f'{self.cache_tag}{TAG_NN}.log', 'w') as file:
-            file.write((f'\n{50*"*"}\n\n').join(nn))
+        with open(f'{self.cache_tag}{tag}.log', 'w') as file:
+            file.write((f'\n{AWIDTH*"*"}\n\n').join(all_tables))

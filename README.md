@@ -161,17 +161,28 @@ Array element *i* is the weight corresponding to eigenface *i*, where eigenface 
 <br>
 <br>
 
-<code>imgset.<b>rmk_img</b>(<i>img, ssindex, rmk_dir</i>)</code><br>
+<code>imgset.<b>rmk_img</b>(<i>img, rmk_dir, ssindex=0</i>)</code><br>
 Reconstructs an image using the eigenfaces of the desired subset and exports the image to `rmk_dir`.
 <br>
 <br>
 
-<code>imgset.<b>rmk_mean</b>(<i>ssindex, rmk_dir</i>)</code><br>
+<code>imgset.<b>rmk_mean</b>(<i>rmk_dir, ssindex=0</i>)</code><br>
 Exports the mean of the desired subset as an image file to `rmk_dir`.
 <br>
 <br>
 
-<code>imgset.<b>rmk_eigfs</b>(<i>ssindex, rmk_dir</i>)</code><br>
+<code>imgset.<b>rmk_eigfs</b>(<i>rmk_dir, ssindex=0</i>)</code><br>
 Exports the eigenfaces of the desired subset as image files to `rmk_dir`.
+<br>
+<br>
+
+<code>imgset.<b>log_imgs</b>(<i>imgs, mode</i>)</code><br>
+`imgs` is a list of `Img` objects.
+
+For each `Img` object, calculates its distance to all subsets.
+
+For each subset: If `mode` is `"cm"`, calculates the image's distance to all training image class means in that subset. If `mode` is `"ti"`, calculates the image's distance to all training images in that subset.
+
+Saves the results to a log file in `self.cache_dir`.
 <br>
 <br>
