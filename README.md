@@ -160,3 +160,18 @@ Returns a NumPy array of `img`'s eigenface weights when considering the subset i
 Array element *i* is the weight corresponding to eigenface *i*, where eigenface *i* has the *i+1*<sup>th</sup> largest eigenvalue of all eigenfaces in that subset.
 <br>
 <br>
+
+<code>imgset.<b>rmk_img</b>(<i>img, ssindex, rmk_dir</i>)</code><br>
+Reconstructs an image using the eigenfaces of the desired subset and exports the image to `rmk_dir`.
+<br>
+<br>
+
+<code>imgset.<b>rmk_mean</b>(<i>ssindex, rmk_dir</i>)</code><br>
+Exports the mean of the desired subset as an image file to `rmk_dir`.
+<br>
+<br>
+
+<code>imgset.<b>rmk_eigfs</b>(<i>ssindex, rmk_dir</i>)</code><br>
+Exports the eigenfaces of the desired subset as image files to `rmk_dir`.
+<br>
+<br>

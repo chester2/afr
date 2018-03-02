@@ -208,25 +208,32 @@ class ImgSet:
     
     # IMAGE REMAKE
     
-    # @pathreset
-    # def rmk_img(self, img, ssindex, rmk_dir):
-        # fweights = self.itow(img, ssindex)
-        # mean = self.read_mean(ssindex)
-        # eigfs = self.read_eigfs(ssindex)
-        # rmk = eigfs.dot(fweights) + mean
+    @pathreset
+    def rmk_img(self, img, ssindex, rmk_dir):
+        fweights = self.itow(img, ssindex)
+        mean = self.read_mean(ssindex)
+        eigfs = self.read_eigfs(ssindex)
+        rmk = eigfs.dot(fweights) + mean
         
-        # fn = os.path.split(img.fp)[1]
-        # temp = fn.split('.')
-        # newfn, ext = '.'.join(temp[:-1]), temp[-1]
+        fn = os.path.split(img.fp)[1]
+        temp = fn.split('.')
+        newfn, ext = '.'.join(temp[:-1]), temp[-1]
         
-        # os.chdir(rmk_dir)
-        # imwrite(f'{newfn}{TAG_RMK}.{ext}', rmk, self.width, self.height)
+        os.chdir(rmk_dir)
+        imwrite(f'{newfn}{TAG_RMK}.{ext}', rmk, self.width, self.height)
     
-    # @pathreset
-    # def rmk_mean(self, ssindex, rmk_dir):
-        # mean = self.read_mean(ssindex)
-        # os.chdir(rmk_dir)
-        # imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.png', mean, self.width, self.height)
+    @pathreset
+    def rmk_mean(self, ssindex, rmk_dir):
+        mean = self.read_mean(ssindex)
+        os.chdir(rmk_dir)
+        imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.png', mean, self.width, self.height)
+    
+    @pathreset
+    def rmk_eigfs(self, ssindex, rmk_dir):
+        eigfs = self.read_eigfs(ssindex)
+        os.chdir(rmk_dir)
+        for j in range(eigfs.shape[1]):
+            imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGF}{j}.png', eigfs[:,j], self.width, self.height)
     
     
     # DEBUG/LOGGING
