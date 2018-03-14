@@ -1,4 +1,3 @@
-from math import isclose
 from prep import *
 from afr.pca import *
 
@@ -24,7 +23,6 @@ rmatrix = [
 #   [-sqrt(2)] + [0]*9
 #   [0, -sqrt(2)] + [0]*8
 #   [0, 0, -sqrt(2)] + [0]*7
-# the eigenvectors corresponding to eigenvalue 0 are 0
 
 # after normalizing, the eigenvalues of L will be 2*sqrt(2) and 0
 # the eigenvectors corresponding to 2*sqrt(2) are then unit vectors
@@ -49,10 +47,7 @@ def test_build_reqs():
 
 def test_normalize():
     trt = 2*np.sqrt(2)
-    for i in range(3):
-        assert(isclose(neigvs[i], trt))
-    for i in range(3, 6):
-        assert(eigvs[i] == 0)
+    assert(np.allclose(neigvs, [trt, trt, trt, 0, 0, 0]))
     
     for j in range(neigfs.shape[1]):
         norm = np.linalg.norm(neigfs[:,j])

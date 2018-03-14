@@ -1,8 +1,6 @@
 # Operations related to finding eigenfaces (principal components) and generating face weights.
 
 
-import os
-
 import numpy as np
 
 

@@ -17,51 +17,36 @@ from .cmc import cmc
 from .knn import knn
 
 # for logging methods
+# import datetime
 from .cmc import get_cmeans, dtocm
 from .tabulate import tabulate
 
 
 class ImgSet:
-    def __init__(self, name, width, height, ipfx, isfx, nofss, timg_dir, cache_dir, class_names=None, refresh_cache=False):
+    def __init__(self, name, width, height, ipfx, isfx, nofss, timg_dir, db_dir, class_names=None, refresh_db=False):
         self.name = name
         self.width = width
         self.height = height
         self.ipfx = ipfx
         self.isfx = isfx
-        self.timg_dir = timg_dir
-        self.cache_dir = cache_dir
-        if class_names:
-            self.class_names = class_names
-        if refresh_cache:
-            self.clear_cache()
         self.nofss = nofss
-    
-    @property
-    def nofss(self):
-        return self._nofss
-    
-    @nofss.setter
-    def nofss(self, x):
-        self._nofss = x
-        self.set_timgs()
-    
-    @pathreset
-    def set_timgs(self):
-        try:
-            # if this throws an exception, then cwd will have changed to self.cache_dir
-            self.timgs = self.read_timgs()
-            # success implies all cache files exist for the current nofss value
-        except:
-            self.timgs = self.import_timgs()
-            self.build_cache()
+        self.timg_dir = timg_dir
+        self.db_dir = db_dir
+        self.class_names = class_names
+        if refresh_db:
+            self.clear()
     
     
     # USEFUL ATTRIBUTES
     
     @property
-    def cache_tag(self):
+    def db_tag(self):
         # for use with read/write methods
         return f'{self.name}{TAG_NOFSS}{self.nofss}'
+    
+    @property
+    def dim(self):
+        return self.width*self.height
     
     @property
     def rmatrix(self):
@@ -89,12 +74,17 @@ class ImgSet:
         return int(match.group(1))
     
     def import_timgs(self):
-        return [
-            TImg(
-                os.path.join(self.timg_dir, fn),
-                self.get_cindex(fn))
-            for fn in os.listdir(self.timg_dir)
-            if not bool(os.stat(os.path.join(self.timg_dir, fn)).st_file_attributes & FILE_ATTRIBUTE_HIDDEN)]
+        timgs = []
+        for fn in os.listdir(self.timg_dir):
+            if not bool(os.stat(os.path.join(self.timg_dir, fn)).st_file_attributes & FILE_ATTRIBUTE_HIDDEN):
+                timg = TImg(
+                    os.path.join(self.timg_dir, fn),
+                    self.get_cindex(fn)
+                )
+            if len(timg.pixels) != self.dim:
+                raise IndexError(f'dimensions for {timg} and image set do not match')
+            timgs.append(timg)
+        return timgs
     
     def kmeans(self):
         # sets the ssindex attribute of each timg
@@ -110,25 +100,32 @@ class ImgSet:
             for i, ssindex in enumerate(km.predict(rmatrix)):
                 self.timgs[i].ssindex = int(ssindex)
     
-    def build_cache(self):
-        self.kmeans()
-        for ss in self.subsets:
-            # pca
-            ssrmatrix = [timg.pixels for timg in ss]
-            mean, eigvs, eigfs = pca(ssrmatrix)
-            self.write_mean(mean, ss[0].ssindex)
-            self.write_eigvs(eigvs, ss[0].ssindex)
-            self.write_eigfs(eigfs, ss[0].ssindex)
-            # eigenfaces
-            for timg in ss:
-                timg.weights = ptow(timg.pixels, mean, eigfs).tolist()
-        self.write_timgs()
+    @pathreset
+    def build(self):
+        try:
+            # if this throws an exception, then cwd will have changed to self.db_dir
+            self.timgs = self.read_timgs()
+            # success implies all db files exist for the current nofss value
+        except:
+            self.timgs = self.import_timgs()
+            self.kmeans()
+            for ss in self.subsets:
+                # pca
+                ssrmatrix = [timg.pixels for timg in ss]
+                mean, eigvs, eigfs = pca(ssrmatrix)
+                self.write_mean(mean, ss[0].ssindex)
+                self.write_eigvs(eigvs, ss[0].ssindex)
+                self.write_eigfs(eigfs, ss[0].ssindex)
+                # eigenfaces
+                for timg in ss:
+                    timg.weights = ptow(timg.pixels, mean, eigfs).tolist()
+            self.write_timgs()
     
     @pathreset
-    def clear_cache(self):
-        os.chdir(self.cache_dir)
+    def clear(self):
+        os.chdir(self.db_dir)
         for fn in os.listdir():
-            if self.name in fn and fn.split('.')[-1] in ('json', 'npy', 'log'):
+            if re.search(f'{self.name}_.*[.](json|npy|log)', fn, re.I):
                 os.remove(fn)
     
     
@@ -152,6 +149,8 @@ class ImgSet:
         return ptow(img.pixels, mean, eigfs)
     
     def classify(self, img, f, *args, **kwargs):
+        if len(img.pixels) != self.dim:
+            raise IndexError('dimensions for image and image set do not match')
         ssindex = self.ss_by_dist(img)[0]
         weights = self.itow(img, ssindex)
         subset = self.subsets[ssindex]
@@ -164,7 +163,7 @@ class ImgSet:
     def cmc(self, img):
         return self.classify(img, cmc)
     
-    def knn(self, img, k):
+    def knn(self, img, k=1):
         return self.classify(img, knn, k)
     
     
@@ -172,42 +171,42 @@ class ImgSet:
     
     @pathreset
     def read_timgs(self):
-        os.chdir(self.cache_dir)
-        with open(f'{self.cache_tag}{TAG_TIMGS}.json') as file:
+        os.chdir(self.db_dir)
+        with open(f'{self.db_tag}{TAG_TIMGS}.json') as file:
             timgs = json.load(file, object_hook=as_timg)
         return timgs
     @pathreset
     def write_timgs(self):
-        os.chdir(self.cache_dir)
-        with open(f'{self.cache_tag}{TAG_TIMGS}.json', 'w') as file:
+        os.chdir(self.db_dir)
+        with open(f'{self.db_tag}{TAG_TIMGS}.json', 'w') as file:
             json.dump(self.timgs, file, cls=TImgEncoder, separators=(',', ':'))
     
     @pathreset
     def read_mean(self, ssindex):
-        os.chdir(self.cache_dir)
-        return np.load(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.npy')
+        os.chdir(self.db_dir)
+        return np.load(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_MEAN}.npy')
     @pathreset
     def write_mean(self, mean, ssindex):
-        os.chdir(self.cache_dir)
-        np.save(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}', mean)
+        os.chdir(self.db_dir)
+        np.save(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_MEAN}', mean)
     
     @pathreset
     def read_eigvs(self, ssindex):
-        os.chdir(self.cache_dir)
-        return np.load(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGVS}.npy')
+        os.chdir(self.db_dir)
+        return np.load(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_EIGVS}.npy')
     @pathreset
     def write_eigvs(self, eigvs, ssindex):
-        os.chdir(self.cache_dir)
-        np.save(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGVS}', eigvs)
+        os.chdir(self.db_dir)
+        np.save(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_EIGVS}', eigvs)
     
     @pathreset
     def read_eigfs(self, ssindex):
-        os.chdir(self.cache_dir)
-        return np.load(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGFS}.npy')
+        os.chdir(self.db_dir)
+        return np.load(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_EIGFS}.npy')
     @pathreset
     def write_eigfs(self, eigfs, ssindex):
-        os.chdir(self.cache_dir)
-        np.save(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGFS}', eigfs)
+        os.chdir(self.db_dir)
+        np.save(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_EIGFS}', eigfs)
     
     
     # IMAGE REMAKE
@@ -230,29 +229,31 @@ class ImgSet:
     def rmk_mean(self, rmk_dir, ssindex=0):
         mean = self.read_mean(ssindex)
         os.chdir(rmk_dir)
-        imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_MEAN}.png', mean, self.width, self.height)
+        imwrite(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_MEAN}.png', mean, self.width, self.height)
     
     @pathreset
     def rmk_eigfs(self, rmk_dir, ssindex=0):
         eigfs = self.read_eigfs(ssindex)
         os.chdir(rmk_dir)
         for j in range(eigfs.shape[1]):
-            imwrite(f'{self.cache_tag}{TAG_SS}{ssindex}{TAG_EIGF}{j}.png', eigfs[:,j], self.width, self.height)
+            imwrite(f'{self.db_tag}{TAG_SS}{ssindex}{TAG_EIGF}{j}.png', eigfs[:,j], self.width, self.height)
     
     
     # DEBUG/LOGGING
     
-    def c_by_dist(self, img, ssindex, incl_dists=False):
-        # returns a list of class indices sorted by closest to farthest from img's projection onto the subset with index ssindex
+    def ti_by_dist(self, img, ssindex):
+        # returns a list of (timg.cindex, distance between img and timg, timg.fn) tuples for when img is projected onto a given subset
         weights = self.itow(img, ssindex)
         dists = [
-            [timg.cindex, np.linalg.norm(timg.weights - weights)]
-            for timg in self.timgs
-            if timg.ssindex == ssindex]
+            [
+                timg.cindex,
+                np.linalg.norm(timg.weights - weights),
+                timg.fn
+            ]
+            for timg in self.subsets[ssindex]
+        ]
         dists.sort(key=lambda x: x[1])
-        if incl_dists:
-            return dists
-        return [x[0] for x in dists]
+        return dists
     
     def format_img(self, img, mode, margin=2):
         ssdists = self.ss_by_dist(img, True)
@@ -267,6 +268,7 @@ class ImgSet:
         for i, d in ssdists:
             # for each subset tabulate either distance to class means or distance to training images
             if mode == 'cm':
+                headings = ['CLASS', 'DISTANCE']
                 dists = list(
                     dtocm(
                         self.itow(img, i),
@@ -274,12 +276,12 @@ class ImgSet:
                     ).items()
                 )
                 dists.sort(key=lambda x: x[1])
-                for i in range(len(dists)):
-                    dists[i] = list(dists[i]) # convert tuple to list
+                for j in range(len(dists)):
+                    dists[j] = list(dists[j]) # convert tuple to list
             elif mode == 'ti':
-                dists = self.c_by_dist(img, i, True)
+                headings = ['CLASS', 'DISTANCE', 'FILENAME']
+                dists = self.ti_by_dist(img, i)
             
-            headings = ['CLASS', 'DISTANCE']
             if self.class_names:
                 headings.insert(1, 'NAME')
                 for item in dists:
@@ -300,6 +302,8 @@ class ImgSet:
             tag = TAG_CM
         elif mode == 'ti':
             tag = TAG_TI
-        os.chdir(self.cache_dir)
-        with open(f'{self.cache_tag}{tag}.log', 'w') as file:
+        os.chdir(self.db_dir)
+        # t = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
+        # with open(f'{self.db_tag}{tag}_{t}.log', 'w') as file:
+        with open(f'{self.db_tag}{tag}.log', 'w') as file:
             file.write((f'\n{AWIDTH*"*"}\n\n').join(all_tables))

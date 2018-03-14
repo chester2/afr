@@ -12,17 +12,18 @@ def get_cmeans(subset):
             cmeans[timg.cindex].append(timg.weights)
         except:
             cmeans[timg.cindex] = [timg.weights]
-    for cindex in cmeans:
-        cmeans[cindex] = np.mean(cmeans[cindex], 0, dtype=np.float64)
-    return cmeans
+    return {
+        cindex: np.mean(cmeans[cindex], 0, dtype=np.float64)
+        for cindex in cmeans
+    }
 
 
 def dtocm(weights, cmeans):
     # distances to class means
-    dists = {}
-    for cindex in cmeans:
-        dists[cindex] = np.linalg.norm(weights - cmeans[cindex])
-    return dists
+    return {
+        cindex: np.linalg.norm(weights - cmeans[cindex])
+        for cindex in cmeans
+    }
 
 
 def cmc(weights, subset):

@@ -1,4 +1,3 @@
-from math import isclose
 from prep import *
 from afr.knn import *
 from fixtures_cmc_knn import *

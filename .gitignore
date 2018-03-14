@@ -2,6 +2,7 @@
 _old/
 afr/__pycache__/
 afr.egg-info/
+afr_julia/
 build/
 dist/
 math/

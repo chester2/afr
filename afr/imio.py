@@ -13,6 +13,7 @@ def standardize(pixels):
 
 
 def unstandardize(pixels):
+    # shift and scale pixels to fill the range 0-255
     m = min(pixels)
     diff = max(pixels) - m
     return [(p - m)*255/diff for p in pixels]
@@ -24,8 +25,8 @@ def imread(fp):
     return standardize(pixels)
 
 
-def imwrite(fn, pixels, w, h):
+def imwrite(fp, pixels, w, h):
     # export list of pixels as a greyscale image to disk
     im = Image.new('L', (w, h),)
     im.putdata(unstandardize(pixels))
-    im.save(fn)
+    im.save(fp)

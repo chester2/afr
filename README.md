@@ -63,16 +63,16 @@ The `ImgSet` and `Img` classes make up the core of AFR. `ImgSet` is a training s
 Full class definition:
 
     class afr.ImgSet(
-        name,               # used to tag filenames of cache files
+        name,               # used to tag filenames of db files
         width,              # pixel width
         height,             # pixel height
         ipfx,               # class index prefix
         isfx,               # class index suffix
         nofss,              # number of linear subsets to use
         timg_dir,           # abs path to directory containing training images
-        cache_dir,          # abs path to where cache files should be stored
+        db_dir,      	    # abs path to where db files should be stored
         class_names=None,   # list/dict mapping class indices to class names
-        refresh_db=False    # remakes cache files if True
+        refresh_db=False    # remakes db files if True
     )
 
 Sample instantiation for the [yale face database](http://vismod.media.mit.edu/vismod/classes/mas622-00/datasets/):
@@ -89,8 +89,9 @@ Sample instantiation for the [yale face database](http://vismod.media.mit.edu/vi
     >>>     os.path.abspath("c:/yalefaces/"),
     >>>     os.path.abspath("c:/db/")
     >>> )
+    >>> yf.build()
 
-On instantiating an `ImgSet` object, cache files are automatically created if they do not exist for the current `nofss` value. On setting a new `nofss` value, cache files will be automatically created if they do not exist for the new value.
+After instantiating an `ImgSet` object, execute its `build()` method to generate database files for the current `nofss` value.
 
 ### Instantiating an Img Object
 
@@ -131,7 +132,7 @@ A list of integers. `imgset.ss_sizes[i]` is the number of training images that m
 ### Methods
 
 <code>imgset.<b>cmc</b>(<i>img</i>)</code><br>
-<code>imgset.<b>knn</b>(<i>img, k=2</i>)</code><br>
+<code>imgset.<b>knn</b>(<i>img, k=1</i>)</code><br>
 Classify an image and return a 2-tuple.
 
 The first element is the matching class index.
@@ -142,10 +143,15 @@ The difference between these methods is that `cmc` looks for the nearest class m
 <br>
 <br>
 
-<code>imgset.<b>clear_cache</b>()</code><br>
-Deletes all cache files associated with `imgset`.
+<code>imgset.<b>build</b>()</code><br>
+Prepares `imgset` for use. Constructs database files if they do not already exist.
 
-To continue using `imgset` without reinstantiating it, set its `nofss` attribute.
+Always run this after instantiating an `ImgSet` object or changing `imgset`'s `nofss` attribute.
+<br>
+<br>
+
+<code>imgset.<b>clear</b>()</code><br>
+Deletes all database files associated with `imgset`.
 <br>
 <br>
 
@@ -183,6 +189,6 @@ For each `Img` object, calculates its distance to all subsets.
 
 For each subset: If `mode` is `"cm"`, calculates the image's distance to all training image class means in that subset. If `mode` is `"ti"`, calculates the image's distance to all training images in that subset.
 
-Saves the results to a log file in `self.cache_dir`.
+Saves the results to a log file in `self.db_dir`.
 <br>
 <br>

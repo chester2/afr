@@ -7,8 +7,8 @@ TAG_SS = '_ss'
 TAG_NOFSS = '_nofss'
 TAG_TIMGS = '_timgs'
 TAG_RMK = '_rmk'
-TAG_CM = '_cm'
-TAG_TI = '_ti'
+TAG_CM = '_dcm'
+TAG_TI = '_dti'
 
 # debug/log methods output formatting
-AWIDTH = 60
+AWIDTH = 79
