@@ -4,6 +4,7 @@
 import os
 import json
 
+import numpy as np
 from .imio import imread
 
 
@@ -42,7 +43,8 @@ class TImgEncoder(json.JSONEncoder):
                 'fp':obj.fp,
                 'cindex':obj.cindex,
                 'ssindex':obj.ssindex,
-                'weights':obj.weights}
+                'weights':obj.weights.tolist()
+            }
         return json.JSONEncoder.default(self, obj)
 
 
@@ -51,4 +53,5 @@ def as_timg(d):
         d['fp'],
         d['cindex'],
         d['ssindex'],
-        d['weights'])
+        np.float64(d['weights'])
+    )

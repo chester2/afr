@@ -21,6 +21,7 @@ Images are assumed to cluster around a submanifold of a high-dimensional Euclide
 
 - Python 3.6+
 - [Pillow](https://python-pillow.org)
+- [Numba](https://numba.pydata.org)
 - [NumPy](http://www.numpy.org)
 - [SciPy](https://www.scipy.org/scipylib/index.html)
 - [scikit-learn](http://scikit-learn.org)
@@ -95,7 +96,7 @@ After instantiating an `ImgSet` object, execute its `build()` method to generate
 
 ### Instantiating an Img Object
 
-The only argument that an `Img` object takes on instantiation is the image's absolute filepath.
+The only argument that an `Img` constructor takes is the image's absolute filepath.
 
     >>> import os
     >>> from afr import Img
@@ -131,8 +132,8 @@ A list of integers. `imgset.ss_sizes[i]` is the number of training images that m
 
 ### Methods
 
-<code>imgset.<b>cmc</b>(<i>img</i>)</code><br>
-<code>imgset.<b>knn</b>(<i>img, k=1</i>)</code><br>
+<code>imgset.<b>cmc</b>(<i>img, j=1</i>)</code><br>
+<code>imgset.<b>knn</b>(<i>img, j=1, k=1</i>)</code><br>
 Classify an image and return a 2-tuple.
 
 The first element is the matching class index.
@@ -140,6 +141,12 @@ The first element is the matching class index.
 The second element is the class name corresponding to that index if `imgset.class_names` exists and is valid. Otherwise, the second element is the empty string.
 
 The difference between these methods is that `cmc` looks for the nearest class mean training image while `knn` looks for the *k* nearest training images.
+
+Classification is performed as follows:
+1. Find the *j*-nearest subsets to `img` using the mean image of each subset.
+2. Apply CMC or KNN in each of those subsets to get the candidate classes (i.e. get *j* candidates, each corresponding to one of the *j* subsets).
+3. If using CMC or 1NN, return the candidate nearest to `img` (the distance between a given candidate and `img` is measured after projecting `img` onto the subset that the candidate belongs to).
+4. If using KNN for `k > 1`, return the candidate with the lowest `sum(training image distances to img)`.
 <br>
 <br>
 

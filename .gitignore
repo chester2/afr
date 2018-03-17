@@ -6,4 +6,5 @@ afr_julia/
 build/
 dist/
 math/
+math_yf/
 tests/__pycache__/

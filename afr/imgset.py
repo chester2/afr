@@ -10,16 +10,17 @@ import numpy as np
 from sklearn.cluster import KMeans
 from .img import TImg, TImgEncoder, as_timg
 from .consts import *
-from .imio import imwrite
+from .imio import imread, imwrite
 from .pathreset import pathreset
 from .pca import pca, ptow
 from .cmc import cmc
 from .knn import knn
+from .timer import timer
 
 # for logging methods
-# import datetime
 from .cmc import get_cmeans, dtocm
 from .tabulate import tabulate
+
 
 
 class ImgSet:
@@ -50,7 +51,7 @@ class ImgSet:
     
     @property
     def rmatrix(self):
-        # in reality a 2D list of image pixel values
+        # actually a list of float64 arrays
         return [timg.pixels for timg in self.timgs]
     
     @property
@@ -86,6 +87,7 @@ class ImgSet:
             timgs.append(timg)
         return timgs
     
+    @timer(TIME_KMEANS)
     def kmeans(self):
         # sets the ssindex attribute of each timg
         # i.e. associates each timg with a subset
@@ -100,6 +102,7 @@ class ImgSet:
             for i, ssindex in enumerate(km.predict(rmatrix)):
                 self.timgs[i].ssindex = int(ssindex)
     
+    @timer(TIME_BUILD)
     @pathreset
     def build(self):
         try:
@@ -118,7 +121,9 @@ class ImgSet:
                 self.write_eigfs(eigfs, ss[0].ssindex)
                 # eigenfaces
                 for timg in ss:
-                    timg.weights = ptow(timg.pixels, mean, eigfs).tolist()
+                    if SHOW_WEIGHTS_PROGRESS:
+                        print(timg.fn)
+                    timg.weights = ptow(timg.pixels, mean, eigfs)
             self.write_timgs()
     
     @pathreset
@@ -148,24 +153,31 @@ class ImgSet:
         eigfs = self.read_eigfs(ssindex)
         return ptow(img.pixels, mean, eigfs)
     
-    def classify(self, img, f, *args, **kwargs):
+    def classify(self, img, func, j, *args, **kwargs):
+        # project image onto the j-nearest subsets and do CMC or KNN on each
+        # each of the j subsets will produce a candidate
+        # if using CMC or 1NN, return the candidate with the smallest distance to img
+        # if using KNN with k>1, return the candidate with the smallest sum(distances of candidate's training images to img)
         if len(img.pixels) != self.dim:
             raise IndexError('dimensions for image and image set do not match')
-        ssindex = self.ss_by_dist(img)[0]
-        weights = self.itow(img, ssindex)
-        subset = self.subsets[ssindex]
-        match = f(weights, subset, *args, **kwargs)
+        ssindices = self.ss_by_dist(img)[:j]
+        subsets = self.subsets
+        # list of (class index, distance) tuples
+        candidates = []
+        for ssindex in ssindices:
+            weights = self.itow(img, ssindex)
+            candidates.append(func(weights, subsets[ssindex], *args, **kwargs))
+        match = min(candidates, key=lambda x: x[1])[0]
         try:
             return match, self.class_names[match]
         except:
             return match, ''
     
-    def cmc(self, img):
-        return self.classify(img, cmc)
+    def cmc(self, img, j=1):
+        return self.classify(img, cmc, j)
     
-    def knn(self, img, k=1):
-        return self.classify(img, knn, k)
-    
+    def knn(self, img, j=1, k=1):
+        return self.classify(img, knn, j, k)
     
     # CACHE READ/WRITE
     
@@ -216,7 +228,7 @@ class ImgSet:
         fweights = self.itow(img, ssindex)
         mean = self.read_mean(ssindex)
         eigfs = self.read_eigfs(ssindex)
-        rmk = eigfs.dot(fweights) + mean
+        rmk = eigfs @ fweights + mean
         
         fn = os.path.split(img.fp)[1]
         temp = fn.split('.')
@@ -303,7 +315,5 @@ class ImgSet:
         elif mode == 'ti':
             tag = TAG_TI
         os.chdir(self.db_dir)
-        # t = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
-        # with open(f'{self.db_tag}{tag}_{t}.log', 'w') as file:
         with open(f'{self.db_tag}{tag}.log', 'w') as file:
             file.write((f'\n{AWIDTH*"*"}\n\n').join(all_tables))

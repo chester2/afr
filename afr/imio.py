@@ -2,26 +2,29 @@
 
 
 import numpy as np
+from numba import njit
 from PIL import Image
 
 
+@njit
 def standardize(pixels):
-    # convert seq with integer coordinates from 0-255 to a collection of std Gaussian distributed values
+    # convert np array with coordinates from 0-255 to a collection of std Gaussian distributed values
     mean = np.mean(pixels)
     std = np.std(pixels)
-    return [(p - mean)/std for p in pixels]
+    return np.float64([(p - mean)/std for p in pixels])
 
 
+@njit
 def unstandardize(pixels):
     # shift and scale pixels to fill the range 0-255
-    m = min(pixels)
-    diff = max(pixels) - m
+    m = np.min(pixels)
+    diff = np.max(pixels) - m
     return [(p - m)*255/diff for p in pixels]
 
 
 def imread(fp):
     # open fp, convert to list of pixels, make it greyscale, standardize to std Gaussian distro
-    pixels = list(Image.open(fp).convert('L').getdata())
+    pixels = np.float64(Image.open(fp).convert('L').getdata())
     return standardize(pixels)
 
 

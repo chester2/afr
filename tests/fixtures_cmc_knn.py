@@ -36,7 +36,7 @@ c = (
         [30, 33, 12]
     ]
 )
-subset =(
+subset = (
         [TImgTest(x, 0) for x in c[0]] +
         [TImgTest(x, 1) for x in c[1]] +
         [TImgTest(x, 2) for x in c[2]] +

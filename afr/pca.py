@@ -2,22 +2,25 @@
 
 
 import numpy as np
+from numba import njit
 
 
 def build_reqs(rmatrix):
     mean = np.mean(rmatrix, 0)
     AT = rmatrix - mean
-    A = AT.transpose()
-    L = AT.dot(A)
+    A = AT.T
+    L = AT @ (A)
     eigvs, eigfs = np.linalg.eigh(L)
-    eigfs = A.dot(eigfs)
+    eigfs = A @ eigfs
     # sort eigvs in descending order
     eigvs = np.flipud(eigvs)
     # ensure eigvs[i] corresponds to eigfs[:,i]
     eigfs = np.fliplr(eigfs)
-    return mean, eigvs, eigfs
+    # make eigvs and eigfs C_CONTIGUOUS again
+    return mean, np.ascontiguousarray(eigvs), np.ascontiguousarray(eigfs)
 
 
+@njit
 def normalize(eigvs, eigfs):
     # normalize eigfs and modify eigvs accordingly
     for j in range(eigfs.shape[1]):
@@ -36,5 +39,4 @@ def pca(rmatrix):
 
 def ptow(pixels, mean, eigfs):
     # pixels to weights
-    mean_shifted = np.array(pixels, dtype=np.float64) - mean
-    return eigfs.transpose().dot(mean_shifted)
+    return eigfs.T @ (pixels - mean)

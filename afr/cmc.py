@@ -29,4 +29,5 @@ def dtocm(weights, cmeans):
 def cmc(weights, subset):
     cmeans = get_cmeans(subset)
     dists = dtocm(weights, cmeans)
-    return min(dists, key=lambda x: dists[x])
+    c = min(dists, key=lambda x: dists[x])
+    return c, dists[c]

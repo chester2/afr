@@ -1,3 +1,4 @@
+import numpy as np
 from prep import *
 from afr.imio import *
 
@@ -8,7 +9,7 @@ from afr.imio import *
 
 
 # training values
-pixels = [1, 2, 3, 4]
+pixels = np.float64([1, 2, 3, 4])
 
 
 # function results

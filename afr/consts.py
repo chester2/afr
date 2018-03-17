@@ -10,5 +10,10 @@ TAG_RMK = '_rmk'
 TAG_CM = '_dcm'
 TAG_TI = '_dti'
 
-# debug/log methods output formatting
+# log methods output formatting
 AWIDTH = 79
+
+# debugging toggles
+SHOW_WEIGHTS_PROGRESS = True
+TIME_BUILD = True
+TIME_KMEANS = True

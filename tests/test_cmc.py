@@ -11,5 +11,4 @@ def test_get_cmeans():
 
 
 def test_cmc():
-    match = cmc(weights_cmc, subset)
-    assert(match == 3)
+    assert(cmc(weights_cmc, subset)[0] == 3)
