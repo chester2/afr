@@ -16,7 +16,8 @@ def knn(weights, subset, k):
     dists.sort(key=lambda x: x[1])
     if k == 1:
         return dists[0][0].cindex, dists[0][1]
-    # counter = {cindex: [count, total dist]}
+    # counter format:
+    #   {cindex: [count, total dist]}
     counter = {}
     for timg, dist in dists:
         try:

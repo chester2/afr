@@ -11,6 +11,7 @@ Images are assumed to cluster around a submanifold of a high-dimensional Euclide
 1. [Installation](#installation)
 2. [Usage](#usage)
 3. [ImgSet Reference](#reference)
+4. [Credits](#credits)
 
 
 
@@ -197,5 +198,13 @@ For each `Img` object, calculates its distance to all subsets.
 For each subset: If `mode` is `"cm"`, calculates the image's distance to all training image class means in that subset. If `mode` is `"ti"`, calculates the image's distance to all training images in that subset.
 
 Saves the results to a log file in `self.db_dir`.
+
+
+
 <br>
-<br>
+<h2 id="credits">Credits</h2>
+
+- Michael Darrigo
+- James Pelley
+- Yuhao Tang
+- Chester Wu

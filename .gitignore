@@ -5,6 +5,9 @@ afr.egg-info/
 afr_julia/
 build/
 dist/
+general/
 math/
+math_Multi/
+math_Singles/
 math_yf/
 tests/__pycache__/
